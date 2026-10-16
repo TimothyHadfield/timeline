@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Put events on a zoomable timeline. Add each event with a date and how much it matters, and the big ones stand out while the small ones appear as you zoom in.">
+    <link rel="icon" href="data:,">
     <title>Timeline</title>
     <style>
         * {
@@ -1402,10 +1404,10 @@
 
             if (listIds.length === 0) {
                 list.innerHTML = `
-                    <div class="no-events-message">
+                    <li class="no-events-message">
                         <h3>No timelines yet!</h3>
                         <p>Create a new timeline above to get started.</p>
-                    </div>
+                    </li>
                 `;
                 return;
             }
@@ -1423,8 +1425,8 @@
                         </div>
                         <div class="save-actions">
                             ${isActive ? '<span style="color: #4caf50;">✓ Active</span>' : '<button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); loadList(\'' + id + '\')">Load</button>'}
-                            <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); openEditList('${id}')" style="padding: 8px 12px;">✎</button>
-                            <button class="btn btn-small btn-danger" onclick="event.stopPropagation(); deleteList('${id}')" style="padding: 8px 12px;">✕</button>
+                            <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); openEditList('${id}')" aria-label="Rename timeline" style="padding: 8px 12px;">✎</button>
+                            <button class="btn btn-small btn-danger" onclick="event.stopPropagation(); deleteList('${id}')" aria-label="Delete timeline" style="padding: 8px 12px;">✕</button>
                         </div>
                     </li>
                 `;
@@ -1439,10 +1441,10 @@
 
             if (currentList.events.length === 0) {
                 list.innerHTML = `
-                    <div class="no-events-message">
+                    <li class="no-events-message">
                         <h3>No events yet!</h3>
                         <p>${currentListId ? 'Add some events above to populate your timeline.' : 'Select or create a timeline first in the Saves tab.'}</p>
-                    </div>
+                    </li>
                 `;
                 return;
             }
