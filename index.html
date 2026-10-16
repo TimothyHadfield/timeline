@@ -443,6 +443,7 @@
             font-size: 0.85em;
             color: #aaa;
             z-index: 100;
+            max-width: calc(100% - 185px); /* stay clear of the zoom buttons on narrow screens */
         }
 
         .timeline-canvas {
@@ -702,6 +703,7 @@
         let canvas, ctx;
         let animationFrame;
         let edgeScrollInterval = null;
+        let edgeScrollVec = { x: 0, y: 0 };
 
         // ===== INITIALIZATION =====
 
@@ -755,11 +757,11 @@
             }
 
             // Sort events by date
-            const sortedEvents = [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const sortedEvents = [...events].sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
             // Calculate time range
-            const minDate = new Date(sortedEvents[0].date);
-            const maxDate = new Date(sortedEvents[sortedEvents.length - 1].date);
+            const minDate = parseLocalDate(sortedEvents[0].date);
+            const maxDate = parseLocalDate(sortedEvents[sortedEvents.length - 1].date);
             const timeRange = maxDate - minDate || 86400000; // At least 1 day
 
             // Calculate visible events based on zoom level
@@ -856,7 +858,7 @@
             const endYear = maxDate.getFullYear() + yearStep;
 
             for (let year = startYear; year <= endYear; year += yearStep) {
-                const yearDate = new Date(year, 0, 1);
+                const yearDate = localDate(year, 0, 1);
                 const x = getX(yearDate);
 
                 if (x >= -50 && x <= canvas.width + 50) {
@@ -891,7 +893,7 @@
 
             for (let year = startYear; year <= endYear; year++) {
                 for (let month = 0; month < 12; month += monthStep) {
-                    const monthDate = new Date(year, month, 1);
+                    const monthDate = localDate(year, month, 1);
                     const x = getX(monthDate);
 
                     if (x >= -50 && x <= canvas.width + 50) {
@@ -966,7 +968,12 @@
                     }
                 }
 
-                currentDate = new Date(currentDate.getTime() + dayMs * dayStep);
+                // Step by calendar days (adding 24h drifts an hour at daylight-saving changes)
+                // and restart at the 1st of each month so month labels are never skipped.
+                const nextDate = new Date(currentDate);
+                nextDate.setDate(nextDate.getDate() + dayStep);
+                if (nextDate.getMonth() !== currentDate.getMonth()) nextDate.setDate(1);
+                currentDate = nextDate;
             }
         }
 
@@ -983,17 +990,20 @@
 
             if (filtered.length === 0) return sortedEvents.slice(0, 1); // Always show at least one
 
-            const minDate = new Date(sortedEvents[0].date);
-            const maxDate = new Date(sortedEvents[sortedEvents.length - 1].date);
+            const minDate = parseLocalDate(sortedEvents[0].date);
+            const maxDate = parseLocalDate(sortedEvents[sortedEvents.length - 1].date);
             const timeRange = maxDate - minDate || 86400000;
 
             // Calculate positions and check for overlaps
             const eventPositions = filtered.map(e => {
-                const progress = (new Date(e.date) - minDate) / timeRange;
+                const progress = (parseLocalDate(e.date) - minDate) / timeRange;
                 const x = padding + progress * availableWidth + timelineState.offsetX;
                 const size = 10 + (e.significance / 20) * 30;
                 return { event: e, x, size };
             });
+            // Place the most significant events first so they win any overlap
+            // (stable sort: equal significance keeps date order)
+            eventPositions.sort((a, b) => b.event.significance - a.event.significance);
 
             // Remove overlapping events (keep higher significance)
             const visible = [];
@@ -1012,7 +1022,8 @@
                 }
             }
 
-            return visible.map(v => v.event);
+            // Back to date order (drawEvents alternates above/below by this order)
+            return visible.map(v => v.event).sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
         }
 
         function drawEvents(events, minDate, timeRange) {
@@ -1020,13 +1031,13 @@
             const availableWidth = (canvas.width - padding * 2) * timelineState.zoom;
             const centerY = canvas.height / 2 + timelineState.offsetY;
 
-            const sortedEvents = [...currentList.events].sort((a, b) => new Date(a.date) - new Date(b.date));
-            const fullMinDate = sortedEvents.length > 0 ? new Date(sortedEvents[0].date) : minDate;
-            const fullMaxDate = sortedEvents.length > 0 ? new Date(sortedEvents[sortedEvents.length - 1].date) : minDate;
+            const sortedEvents = [...currentList.events].sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
+            const fullMinDate = sortedEvents.length > 0 ? parseLocalDate(sortedEvents[0].date) : minDate;
+            const fullMaxDate = sortedEvents.length > 0 ? parseLocalDate(sortedEvents[sortedEvents.length - 1].date) : minDate;
             const fullTimeRange = fullMaxDate - fullMinDate || 86400000;
 
             events.forEach((event, index) => {
-                const progress = (new Date(event.date) - fullMinDate) / fullTimeRange;
+                const progress = (parseLocalDate(event.date) - fullMinDate) / fullTimeRange;
                 const x = padding + progress * availableWidth + timelineState.offsetX;
 
                 // Skip if outside visible area
@@ -1094,11 +1105,19 @@
             return text.length > maxLength ? text.substring(0, maxLength - 2) + '...' : text;
         }
 
+        // Local midnight for a year/month/day. setFullYear is needed because
+        // new Date(79, 7, 24) means 1979, not the year 79.
+        function localDate(year, month, day) {
+            const d = new Date(2000, 0, 1);
+            d.setFullYear(year, month, day);
+            return d;
+        }
+
         // Parse "YYYY-MM-DD" as a local date (new Date("YYYY-MM-DD") is UTC midnight,
         // which shows as the previous day in US time zones).
         function parseLocalDate(dateStr) {
             const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
-            return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(dateStr);
+            return m ? localDate(+m[1], +m[2] - 1, +m[3]) : new Date(dateStr);
         }
 
         function formatDateShort(dateStr) {
@@ -1117,9 +1136,10 @@
             const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
             const newZoom = Math.max(0.1, Math.min(10000, timelineState.zoom * zoomFactor));
 
-            // Zoom towards mouse position
-            const zoomPoint = (mouseX - timelineState.offsetX) / timelineState.zoom;
-            timelineState.offsetX = mouseX - zoomPoint * newZoom;
+            // Zoom towards mouse position (x = padding + p * width * zoom + offsetX, padding 100)
+            const padding = 100;
+            const zoomPoint = (mouseX - padding - timelineState.offsetX) / timelineState.zoom;
+            timelineState.offsetX = mouseX - padding - zoomPoint * newZoom;
 
             timelineState.zoom = newZoom;
             renderTimeline();
@@ -1156,6 +1176,11 @@
         function handleMouseLeave() {
             timelineState.isDragging = false;
             canvas.classList.remove('dragging');
+            // Leaving the window from an edge sends no further mousemove: stop edge scroll here
+            if (edgeScrollInterval) {
+                clearInterval(edgeScrollInterval);
+                edgeScrollInterval = null;
+            }
         }
 
         function handleEdgeScroll(e) {
@@ -1173,7 +1198,9 @@
                 return;
             }
 
-            const inContainer = e.clientX >= rect.left && e.clientX <= rect.right &&
+            // Only over the canvas itself, so hovering the zoom buttons or info box doesn't pan
+            const inContainer = e.target === canvas &&
+                               e.clientX >= rect.left && e.clientX <= rect.right &&
                                e.clientY >= rect.top && e.clientY <= rect.bottom;
 
             if (!inContainer) {
@@ -1199,11 +1226,13 @@
                 scrollY = -scrollSpeed;
             }
 
+            edgeScrollVec = { x: scrollX, y: scrollY };
+
             if (scrollX !== 0 || scrollY !== 0) {
                 if (!edgeScrollInterval) {
                     edgeScrollInterval = setInterval(() => {
-                        timelineState.offsetX += scrollX;
-                        timelineState.offsetY += scrollY;
+                        timelineState.offsetX += edgeScrollVec.x;
+                        timelineState.offsetY += edgeScrollVec.y;
                         renderTimeline();
                     }, 16);
                 }
@@ -1419,7 +1448,7 @@
             }
 
             // Sort by date
-            const sorted = [...currentList.events].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const sorted = [...currentList.events].sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
             list.innerHTML = sorted.map(event => {
                 const sigClass = event.significance <= 7 ? 'low' : event.significance <= 14 ? 'medium' : 'high';
