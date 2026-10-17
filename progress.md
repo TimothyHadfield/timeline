@@ -25,6 +25,7 @@ None.
 - No accounts, so no `claude-test` account is needed.
 
 ## Decisions
+- 2026-10-17 fix: buttons/inputs no longer fall back to a serif font in Safari (`font-family: inherit` on form controls); the two browser `confirm()` popups (delete event, delete timeline) are now an in-page dialog (`appConfirm`, reusing the edit modal's overlay/box; OK/Enter deletes, Cancel/Escape/backdrop doesn't).
 - 2026-10-16 sweep: biggest events now win overlaps (Apollo 11, significance 20, was hidden behind smaller events); event dots line up with their day ticks (they were drawn at UTC midnight, 6-7 h early); years below 100 no longer show as 19xx; day ticks no longer repeat or skip around daylight-saving changes or month ends; wheel zoom no longer drifts off the mouse; hovering the zoom buttons no longer pans the view, and leaving the window from an edge stops edge scrolling; on phones the help box no longer sits under the zoom buttons.
 
 ## NOT verified

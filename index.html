@@ -13,6 +13,10 @@
             box-sizing: border-box;
         }
 
+        button, input, select, textarea {
+            font-family: inherit;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
@@ -669,6 +673,17 @@
             <div class="modal-buttons">
                 <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveListEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal (replaces the browser's confirm()) -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-message">
+            <h3 id="confirm-message"></h3>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+                <button class="btn btn-primary" id="confirm-ok">OK</button>
             </div>
         </div>
     </div>
@@ -1366,8 +1381,12 @@
             const event = currentList.events.find(e => e.id === eventId);
             if (!event) return;
 
-            if (!confirm(`Delete "${event.name}"?`)) return;
+            appConfirm(`Delete "${event.name}"?`).then(ok => {
+                if (ok) removeEvent(eventId, event.name);
+            });
+        }
 
+        function removeEvent(eventId, eventName) {
             currentList.events = currentList.events.filter(e => e.id !== eventId);
 
             // Sync currentList back to allLists
@@ -1377,7 +1396,7 @@
 
             saveAllData();
             renderAll();
-            showNotification(`"${event.name}" deleted`, 'info');
+            showNotification(`"${eventName}" deleted`, 'info');
         }
 
         // ===== RENDERING =====
@@ -1523,8 +1542,13 @@
             if (!allLists[listId]) return;
 
             const listName = allLists[listId].name;
-            if (!confirm(`Delete timeline "${listName}"? All events will be lost.`)) return;
+            appConfirm(`Delete timeline "${listName}"? All events will be lost.`).then(ok => {
+                if (ok) removeList(listId, listName);
+            });
+        }
 
+        function removeList(listId, listName) {
+            if (!allLists[listId]) return;
             delete allLists[listId];
 
             if (currentListId === listId) {
@@ -1545,6 +1569,39 @@
             document.getElementById('modal-title').textContent = 'Edit Timeline Name';
             document.getElementById('edit-name').value = list.name;
             document.getElementById('edit-modal').classList.add('show');
+        }
+
+        // In-page replacement for confirm(): resolves true on OK/Enter, false on Cancel/Escape/backdrop.
+        function appConfirm(message) {
+            const overlay = document.getElementById('confirm-modal');
+            const okBtn = document.getElementById('confirm-ok');
+            const cancelBtn = document.getElementById('confirm-cancel');
+            document.getElementById('confirm-message').textContent = message;
+            const previousFocus = document.activeElement;
+            return new Promise(resolve => {
+                function finish(result) {
+                    overlay.classList.remove('show');
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    overlay.removeEventListener('click', onBackdrop);
+                    document.removeEventListener('keydown', onKey, true);
+                    if (previousFocus && previousFocus.focus) previousFocus.focus();
+                    resolve(result);
+                }
+                function onOk() { finish(true); }
+                function onCancel() { finish(false); }
+                function onBackdrop(e) { if (e.target === overlay) finish(false); }
+                function onKey(e) {
+                    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+                    else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); finish(document.activeElement !== cancelBtn); }
+                }
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+                overlay.addEventListener('click', onBackdrop);
+                document.addEventListener('keydown', onKey, true);
+                overlay.classList.add('show');
+                okBtn.focus();
+            });
         }
 
         function closeEditModal() {

@@ -33,7 +33,7 @@ A personal, single-page web app for putting events on a zoomable timeline. Each 
 - `getVisibleEvents` places events in significance order (so big ones win overlaps) but must return them in date order: `drawEvents` alternates above/below by that order.
 - The canvas isn't scaled for devicePixelRatio, so it is soft on phones. Changing that is a visual change: Tim's call.
 - Pan is right-click drag or mouse edge scroll only; there are no touch gestures. Tim's notes list Timeline as "laptop-first" (accepted).
-- Playwright dismisses `confirm()` dialogs, so delete buttons look like no-ops in phone-view runs.
+- Deletes ask through the in-page `appConfirm()` (no browser `confirm()`); in phone-view click `#confirm-ok` / `#confirm-cancel` to answer it.
 
 ## Standing instructions
 - No project-specific instructions from Tim yet. Tim owns the look, wording, layout and names; bug fixes must leave pixels unchanged unless he asks.
