@@ -13,6 +13,7 @@ Maintenance only. The app is published and working; no feature work is planned.
 | Tests | None (single HTML file); verified with phone-view `--eval` checks |
 | Repo | Public, published 2026-09-27 with README and screenshots |
 | 2026-10-16 sweep | 7 logic bugs fixed (see Decisions); CLAUDE.md and this file added |
+| 2026-10-17 site icon | `icon.svg` (tab) + `apple-touch-icon.png` 180px (iPhone home screen): a timeline bar with three event pins of different sizes on navy |
 
 ## Authorized next steps
 None.
